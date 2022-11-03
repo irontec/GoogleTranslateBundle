@@ -6,7 +6,7 @@
 
     <services>
         <service id="eko.google_translate.data_collector.translate" class="Eko\GoogleTranslateBundle\DataCollector\TranslateDataCollector">
-            <tag name="data_collector" template="EkoGoogleTranslateBundle:Collector:translate" id="eko.google_translate.data_collector.translate" />
+            <tag name="data_collector" template="@EkoGoogleTranslateBundle/translate" id="eko.google_translate.data_collector.translate" />
 
             <argument type="service" id="eko.google_translate.method_manager" />
         </service>

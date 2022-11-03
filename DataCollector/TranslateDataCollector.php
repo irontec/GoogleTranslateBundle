@@ -43,7 +43,7 @@ class TranslateDataCollector extends DataCollector implements DataCollectorInter
     /**
      * {@inheritdoc}
      */
-    public function collect(Request $request, Response $response, \Exception $exception = null)
+    public function collect(Request $request, Response $response, \Throwable $exception = null)
     {
         foreach ($this->manager->all() as $name => $method) {
             $this->data[$name] = $method->getProfiles();

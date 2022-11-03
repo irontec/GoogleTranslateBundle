@@ -25,8 +25,8 @@ class Configuration implements ConfigurationInterface
      */
     public function getConfigTreeBuilder()
     {
-        $treeBuilder = new TreeBuilder();
-        $rootNode = $treeBuilder->root('eko_google_translate');
+        $treeBuilder = new TreeBuilder('eko_google_translate');
+        $rootNode = $treeBuilder->getRootNode();
 
         $rootNode
             ->children()
