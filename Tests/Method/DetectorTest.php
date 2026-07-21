@@ -3,13 +3,18 @@
 namespace Eko\GoogleTranslateBundle\Tests\Method;
 
 use Eko\GoogleTranslateBundle\Translate\Method\Detector;
+use GuzzleHttp\Client;
+use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Psr7\Utils;
+use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Detector class test.
  *
  * @author Vincent Composieux <vincent.composieux@gmail.com>
  */
-class DetectorTest extends \PHPUnit_Framework_TestCase
+class DetectorTest extends TestCase
 {
     /**
      * @var Detector Detector service
@@ -24,13 +29,9 @@ class DetectorTest extends \PHPUnit_Framework_TestCase
     /**
      * Set up methods services.
      */
-    protected function setUp()
+    protected function setUp(): void
     {
-        $this->detector = $this->getMock(
-            'Eko\GoogleTranslateBundle\Translate\Method\Detector',
-            null,
-            ['fakeapikey', $this->getClientMock()]
-        );
+        $this->detector = new Detector('fakeapikey', $this->getClientMock());
     }
 
     /**
@@ -39,15 +40,16 @@ class DetectorTest extends \PHPUnit_Framework_TestCase
     public function testSimpleDetect()
     {
         // Given
-        $this->responseMock->expects($this->any())->method('json')->will($this->returnValue(
-            ['data' => ['detections' => [[['language' => 'en']]]]]
-        ));
+        $this->responseMock->method('getBody')->willReturn(Utils::streamFor(json_encode(
+            ['data' => ['detections' => [[['language' => 'en']]]]],
+            JSON_UNESCAPED_UNICODE
+        )));
 
         // When
         $language = $this->detector->detect('hi');
 
         // Then
-        $this->assertEquals($language, 'en', 'Should return language "en"');
+        $this->assertEquals('en', $language, 'Should return language "en"');
     }
 
     /**
@@ -55,11 +57,12 @@ class DetectorTest extends \PHPUnit_Framework_TestCase
      */
     public function testExceptionDetect()
     {
-        $this->responseMock->expects($this->any())->method('json')->will($this->returnValue(
-            ['data' => ['detections' => [[['language' => Detector::UNDEFINED_LANGUAGE]]]]]
-        ));
+        $this->responseMock->method('getBody')->willReturn(Utils::streamFor(json_encode(
+            ['data' => ['detections' => [[['language' => Detector::UNDEFINED_LANGUAGE]]]]],
+            JSON_UNESCAPED_UNICODE
+        )));
 
-        $this->setExpectedException('Eko\GoogleTranslateBundle\Exception\UnableToDetectException');
+        $this->expectException('Eko\GoogleTranslateBundle\Exception\UnableToDetectException');
 
         $this->detector->detect('undefined');
     }
@@ -67,19 +70,18 @@ class DetectorTest extends \PHPUnit_Framework_TestCase
     /**
      * Returns Guzzle HTTP client mock and sets response mock property.
      *
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return ClientInterface
      */
     protected function getClientMock()
     {
-        $clientMock = $this->getMockBuilder('GuzzleHttp\ClientInterface')
+        $clientMock = $this->getMockBuilder(Client::class)
             ->disableOriginalConstructor()
+            ->onlyMethods(['get'])
             ->getMock();
 
-        $this->responseMock = $this->getMockBuilder('GuzzleHttp\Message\Response')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $this->responseMock = $this->createMock(ResponseInterface::class);
 
-        $clientMock->expects($this->any())->method('get')->will($this->returnValue($this->responseMock));
+        $clientMock->method('get')->willReturn($this->responseMock);
 
         return $clientMock;
     }

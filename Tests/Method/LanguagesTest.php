@@ -3,13 +3,18 @@
 namespace Eko\GoogleTranslateBundle\Tests\Method;
 
 use Eko\GoogleTranslateBundle\Translate\Method\Languages;
+use GuzzleHttp\Client;
+use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Psr7\Utils;
+use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Languages class test.
  *
  * @author Vincent Composieux <vincent.composieux@gmail.com>
  */
-class LanguagesTest extends \PHPUnit_Framework_TestCase
+class LanguagesTest extends TestCase
 {
     /**
      * @var Languages Languages service
@@ -24,13 +29,9 @@ class LanguagesTest extends \PHPUnit_Framework_TestCase
     /**
      * Set up methods services.
      */
-    protected function setUp()
+    protected function setUp(): void
     {
-        $this->languages = $this->getMock(
-            'Eko\GoogleTranslateBundle\Translate\Method\Languages',
-            null,
-            ['fakeapikey', $this->getClientMock()]
-        );
+        $this->languages = new Languages('fakeapikey', $this->getClientMock());
     }
 
     /**
@@ -39,9 +40,10 @@ class LanguagesTest extends \PHPUnit_Framework_TestCase
     public function testSimpleGet()
     {
         // Given
-        $this->responseMock->expects($this->any())->method('json')->will($this->returnValue(
-            ['data' => ['languages' => [['language' => 'en'], ['language' => 'fr']]]]
-        ));
+        $this->responseMock->method('getBody')->willReturn(Utils::streamFor(json_encode(
+            ['data' => ['languages' => [['language' => 'en'], ['language' => 'fr']]]],
+            JSON_UNESCAPED_UNICODE
+        )));
 
         // When
         $values = $this->languages->get();
@@ -61,12 +63,13 @@ class LanguagesTest extends \PHPUnit_Framework_TestCase
     public function testGetWithTarget()
     {
         // Given
-        $this->responseMock->expects($this->any())->method('json')->will($this->returnValue(
+        $this->responseMock->method('getBody')->willReturn(Utils::streamFor(json_encode(
             ['data' => ['languages' => [
                 ['language' => 'en', 'name' => 'Anglais'],
                 ['language' => 'fr', 'name' => 'Français'],
-            ]]]
-        ));
+            ]]],
+            JSON_UNESCAPED_UNICODE
+        )));
 
         // When
         $values = $this->languages->get('fr');
@@ -86,19 +89,18 @@ class LanguagesTest extends \PHPUnit_Framework_TestCase
     /**
      * Returns Guzzle HTTP client mock and sets response mock property.
      *
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return ClientInterface
      */
     protected function getClientMock()
     {
-        $clientMock = $this->getMockBuilder('GuzzleHttp\ClientInterface')
+        $clientMock = $this->getMockBuilder(Client::class)
             ->disableOriginalConstructor()
+            ->onlyMethods(['get'])
             ->getMock();
 
-        $this->responseMock = $this->getMockBuilder('GuzzleHttp\Message\Response')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $this->responseMock = $this->createMock(ResponseInterface::class);
 
-        $clientMock->expects($this->any())->method('get')->will($this->returnValue($this->responseMock));
+        $clientMock->method('get')->willReturn($this->responseMock);
 
         return $clientMock;
     }

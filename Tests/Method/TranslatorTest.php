@@ -2,14 +2,20 @@
 
 namespace Eko\GoogleTranslateBundle\Tests\Method;
 
+use Eko\GoogleTranslateBundle\Translate\Method\Detector;
 use Eko\GoogleTranslateBundle\Translate\Method\Translator;
+use GuzzleHttp\Client;
+use GuzzleHttp\ClientInterface;
+use GuzzleHttp\Psr7\Utils;
+use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseInterface;
 
 /**
  * Translator class test.
  *
  * @author Vincent Composieux <vincent.composieux@gmail.com>
  */
-class TranslatorTest extends \PHPUnit_Framework_TestCase
+class TranslatorTest extends TestCase
 {
     /**
      * @var Translator Translator service
@@ -24,13 +30,9 @@ class TranslatorTest extends \PHPUnit_Framework_TestCase
     /**
      * Set up methods services.
      */
-    protected function setUp()
+    protected function setUp(): void
     {
-        $this->translator = $this->getMock(
-            'Eko\GoogleTranslateBundle\Translate\Method\Translator',
-            null,
-            ['fakeapikey', $this->getClientMock(), $this->getDetectorMock()]
-        );
+        $this->translator = new Translator('fakeapikey', $this->getClientMock(), $this->getDetectorMock());
     }
 
     /**
@@ -39,15 +41,16 @@ class TranslatorTest extends \PHPUnit_Framework_TestCase
     public function testSimpleTranslate()
     {
         // Given
-        $this->responseMock->expects($this->any())->method('json')->will($this->returnValue(
-            ['data' => ['translations' => [['translatedText' => 'salut']]]]
-        ));
+        $this->responseMock->method('getBody')->willReturn(Utils::streamFor(json_encode(
+            ['data' => ['translations' => [['translatedText' => 'salut']]]],
+            JSON_UNESCAPED_UNICODE
+        )));
 
         // When
         $value = $this->translator->translate('hi', 'fr', 'en');
 
         // Then
-        $this->assertEquals($value, 'salut', 'Should return "salut"');
+        $this->assertEquals('salut', $value, 'Should return "salut"');
     }
 
     /**
@@ -56,15 +59,16 @@ class TranslatorTest extends \PHPUnit_Framework_TestCase
     public function testPlainTextTranslate()
     {
         // Given
-        $this->responseMock->expects($this->any())->method('json')->will($this->returnValue(
-            ['data' => ['translations' => [['translatedText' => "J'ai"]]]]
-        ));
+        $this->responseMock->method('getBody')->willReturn(Utils::streamFor(json_encode(
+            ['data' => ['translations' => [['translatedText' => "J'ai"]]]],
+            JSON_UNESCAPED_UNICODE
+        )));
 
         // When
         $value = $this->translator->translate('I have', 'fr', 'en', true);
 
         // Then
-        $this->assertEquals($value, "J'ai", 'Should return "J\'ai"');
+        $this->assertEquals("J'ai", $value, 'Should return "J\'ai"');
     }
 
     /**
@@ -73,9 +77,10 @@ class TranslatorTest extends \PHPUnit_Framework_TestCase
     public function testMultipleTranslate()
     {
         // Given
-        $this->responseMock->expects($this->any())->method('json')->will($this->returnValue(
-            ['data' => ['translations' => [['translatedText' => 'salut']]]]
-        ));
+        $this->responseMock->method('getBody')->willReturnOnConsecutiveCalls(
+            Utils::streamFor(json_encode(['data' => ['translations' => [['translatedText' => 'salut']]]], JSON_UNESCAPED_UNICODE)),
+            Utils::streamFor(json_encode(['data' => ['translations' => [['translatedText' => 'salut']]]], JSON_UNESCAPED_UNICODE))
+        );
 
         // When
         $values = $this->translator->translate(['hi', 'hi'], 'fr', 'en');
@@ -84,7 +89,7 @@ class TranslatorTest extends \PHPUnit_Framework_TestCase
         $this->assertCount(2, $values, 'Should return an array with 2 elements');
 
         foreach ($values as $value) {
-            $this->assertEquals($value, 'salut', 'Should return "salut"');
+            $this->assertEquals('salut', $value, 'Should return "salut"');
         }
     }
 
@@ -94,9 +99,10 @@ class TranslatorTest extends \PHPUnit_Framework_TestCase
     public function testMultipleEconomicTranslate()
     {
         // Given
-        $this->responseMock->expects($this->once())->method('json')->will($this->returnValue(
-            ['data' => ['translations' => [['translatedText' => 'salut # salut']]]]
-        ));
+        $this->responseMock->expects($this->once())->method('getBody')->willReturn(Utils::streamFor(json_encode(
+            ['data' => ['translations' => [['translatedText' => 'salut # salut']]]],
+            JSON_UNESCAPED_UNICODE
+        )));
 
         // When
         $values = $this->translator->translate(['hi', 'hi'], 'fr', 'en', true);
@@ -105,7 +111,7 @@ class TranslatorTest extends \PHPUnit_Framework_TestCase
         $this->assertCount(2, $values, 'Should return an array with 2 elements');
 
         foreach ($values as $value) {
-            $this->assertEquals($value, 'salut', 'Should return "salut"');
+            $this->assertEquals('salut', $value, 'Should return "salut"');
         }
     }
 
@@ -115,15 +121,16 @@ class TranslatorTest extends \PHPUnit_Framework_TestCase
     public function testTranslateUsingDetector()
     {
         // Given
-        $this->responseMock->expects($this->any())->method('json')->will($this->returnValue(
-            ['data' => ['translations' => [['translatedText' => 'comment allez-vous ?']]]]
-        ));
+        $this->responseMock->method('getBody')->willReturn(Utils::streamFor(json_encode(
+            ['data' => ['translations' => [['translatedText' => 'comment allez-vous ?']]]],
+            JSON_UNESCAPED_UNICODE
+        )));
 
         // When
         $value = $this->translator->translate('how are you?', 'fr');
 
         // Then
-        $this->assertEquals($value, 'comment allez-vous ?', 'Should return "comment allez-vous ?"');
+        $this->assertEquals('comment allez-vous ?', $value, 'Should return "comment allez-vous ?"');
     }
 
     /**
@@ -133,53 +140,56 @@ class TranslatorTest extends \PHPUnit_Framework_TestCase
     {
         // Build a long input text, so that the translate method will split it up in two.
         $text = 'hi. ';
-        $multiplier = 1.5 * Translator::MAXIMUM_TEXT_SIZE / strlen($text);
+        $multiplier = (int) (1.5 * Translator::MAXIMUM_TEXT_SIZE / strlen($text));
         $textInEn = str_repeat('hi. ', $multiplier);
         $textInFr = str_repeat('salut. ', $multiplier);
-        $textInFrPart1 = substr($textInFr, 0, strlen($textInFr) / 2);
+        $textInFrPart1 = substr($textInFr, 0, (int) (strlen($textInFr) / 2));
         $textInFrPart2 = substr($textInFr, strlen($textInFrPart1));
 
         // Given
-        $this->responseMock->expects($this->any())->method('json')->will($this->onConsecutiveCalls(
-            ['data' => ['translations' => [['translatedText' => $textInFrPart1]]]],
-            ['data' => ['translations' => [['translatedText' => $textInFrPart2]]]]
-        ));
+        $this->responseMock->method('getBody')->willReturnOnConsecutiveCalls(
+            Utils::streamFor(json_encode(['data' => ['translations' => [['translatedText' => $textInFrPart1]]]], JSON_UNESCAPED_UNICODE)),
+            Utils::streamFor(json_encode(['data' => ['translations' => [['translatedText' => $textInFrPart2]]]], JSON_UNESCAPED_UNICODE))
+        );
 
         // When
         $value = $this->translator->translate($textInEn, 'en');
 
         // Then
-        $this->assertEquals($value, $textInFr, 'Should return "'.$textInFr.'"');
+        $this->assertEquals($textInFr, $value, 'Should return "'.$textInFr.'"');
     }
 
     /**
      * Returns detector service mock.
      *
-     * @return \Eko\GoogleTranslateBundle\Translate\Method\Detector
+     * @return Detector
      */
     public function getDetectorMock()
     {
-        return $this->getMockBuilder('Eko\GoogleTranslateBundle\Translate\Method\Detector')
+        $detectorMock = $this->getMockBuilder(Detector::class)
             ->disableOriginalConstructor()
             ->getMock();
+
+        $detectorMock->method('detect')->willReturn('en');
+
+        return $detectorMock;
     }
 
     /**
      * Returns Guzzle HTTP client mock and sets response mock property.
      *
-     * @return \PHPUnit_Framework_MockObject_MockObject
+     * @return ClientInterface
      */
     protected function getClientMock()
     {
-        $clientMock = $this->getMockBuilder('GuzzleHttp\ClientInterface')
+        $clientMock = $this->getMockBuilder(Client::class)
             ->disableOriginalConstructor()
+            ->onlyMethods(['get'])
             ->getMock();
 
-        $this->responseMock = $this->getMockBuilder('GuzzleHttp\Message\Response')
-            ->disableOriginalConstructor()
-            ->getMock();
+        $this->responseMock = $this->createMock(ResponseInterface::class);
 
-        $clientMock->expects($this->any())->method('get')->will($this->returnValue($this->responseMock));
+        $clientMock->method('get')->willReturn($this->responseMock);
 
         return $clientMock;
     }
