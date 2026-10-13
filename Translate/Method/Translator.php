@@ -55,7 +55,7 @@ class Translator extends Method implements MethodInterface
      * @param Detector        $detector  A Detector service
      * @param Stopwatch       $stopwatch Symfony profiler stopwatch service
      */
-    public function __construct($apiKey, ClientInterface $client, Detector $detector, Stopwatch $stopwatch = null)
+    public function __construct($apiKey, ClientInterface $client, Detector $detector, ?Stopwatch $stopwatch = null)
     {
         $this->detector = $detector;
 

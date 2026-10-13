@@ -60,7 +60,7 @@ class Method
      * @param ClientInterface $client
      * @param Stopwatch       $stopwatch Symfony profiler Stopwatch service
      */
-    public function __construct($apiKey, ClientInterface $client, Stopwatch $stopwatch = null)
+    public function __construct($apiKey, ClientInterface $client, ?Stopwatch $stopwatch = null)
     {
         $this->apiKey    = $apiKey;
         $this->client    = $client;
@@ -119,7 +119,7 @@ class Method
      *
      * @param StopwatchEvent $event A stopwatchEvent instance
      */
-    protected function stopProfiling(StopwatchEvent $event = null)
+    protected function stopProfiling(?StopwatchEvent $event = null)
     {
         if ($this->stopwatch instanceof Stopwatch) {
             $event->stop();
